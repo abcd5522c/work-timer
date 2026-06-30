@@ -1,30 +1,13 @@
 /**
- * Home — 極簡每日工時記錄（手機優化版）
- * 只做一件事：記錄每天上班幾小時
+ * Home — 每日工時記錄（含排班系統）
  */
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-
-// ── 資料型別 ──────────────────────────────────────────
-interface DayEntry {
-  date: string;   // YYYY-MM-DD
-  hours: number;  // 工時（小時，支援小數，如 8.5）
-  note: string;   // 備註（可空）
-}
-
-const STORAGE_KEY = "daily_work_hours";
-
-function load(): DayEntry[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"); }
-  catch { return []; }
-}
-function save(data: DayEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
+import { useShiftSchedule, getShiftColor, getShiftName } from "@/hooks/useShiftSchedule";
 
 // ── 日期工具 ──────────────────────────────────────────
 function toDateStr(d: Date) {
@@ -47,20 +30,24 @@ function addDays(s: string, n: number) {
 
 // ── 主元件 ────────────────────────────────────────────
 export default function Home() {
-  const [entries, setEntries] = useState<DayEntry[]>(load);
+  const { shifts, entries, addEntry, deleteEntry, getDateEntries, getMonthStats } = useShiftSchedule();
   const [viewDate, setViewDate] = useState(todayStr());
+  const [selectedShiftId, setSelectedShiftId] = useState(shifts[0]?.id ?? "");
   const [hoursInput, setHoursInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
 
-  // 當前日期的記錄
-  const current = entries.find(e => e.date === viewDate);
   const isToday = viewDate === todayStr();
-
-  // 本月統計
+  const dateEntries = getDateEntries(viewDate);
   const monthPrefix = viewDate.slice(0, 7);
-  const monthEntries = entries.filter(e => e.date.startsWith(monthPrefix));
-  const monthTotal = monthEntries.reduce((s, e) => s + e.hours, 0);
-  const monthDays = monthEntries.length;
+  const monthStats = getMonthStats(monthPrefix);
+
+  // 初始化選中班次
+  useEffect(() => {
+    if (shifts.length > 0 && !shifts.find(s => s.id === selectedShiftId)) {
+      setSelectedShiftId(shifts[0].id);
+    }
+  }, [shifts, selectedShiftId]);
 
   // 儲存記錄
   const handleSave = () => {
@@ -70,49 +57,70 @@ export default function Home() {
       return;
     }
     const note = noteInput.trim();
-    const updated = entries.filter(e => e.date !== viewDate);
-    updated.push({ date: viewDate, hours: h, note });
-    updated.sort((a, b) => b.date.localeCompare(a.date));
-    setEntries(updated);
-    save(updated);
+    addEntry(viewDate, selectedShiftId, h, note);
     setHoursInput("");
     setNoteInput("");
-    toast.success(`已記錄 ${displayDate(viewDate)}：${h} 小時`);
+    toast.success(`已記錄 ${getShiftName(shifts, selectedShiftId)} — ${h} 小時`);
   };
 
   // 刪除記錄
-  const handleDelete = (date: string) => {
-    const updated = entries.filter(e => e.date !== date);
-    setEntries(updated);
-    save(updated);
+  const handleDelete = (shiftId: string) => {
+    deleteEntry(viewDate, shiftId);
     toast("已刪除記錄");
   };
 
-  // 切換日期時填入已有資料
-  useEffect(() => {
-    const c = entries.find(e => e.date === viewDate);
-    if (c) {
-      setHoursInput(String(c.hours));
-      setNoteInput(c.note);
-    } else {
-      setHoursInput("");
-      setNoteInput("");
-    }
-  }, [viewDate, entries]);
-
-  // 近 30 天記錄（最新在前）
-  const recentEntries = entries.slice(0, 30);
+  // 當前日期的工時總計
+  const dayTotal = dateEntries.reduce((s, e) => s + e.hours, 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center py-4 px-4 pb-safe">
       {/* Header */}
-      <div className="w-full max-w-md mb-6 text-center pt-safe">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <img src="/manus-storage/logo_99dea628.png" alt="logo" className="w-6 h-6" />
-          <h1 className="font-timer text-lg font-semibold tracking-widest text-zinc-100">WorkLog</h1>
+      <div className="w-full max-w-md mb-5 flex items-center justify-between pt-safe">
+        <div className="text-center flex-1">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <img src="/manus-storage/logo_99dea628.png" alt="logo" className="w-6 h-6" />
+            <h1 className="font-timer text-lg font-semibold tracking-widest text-zinc-100">WorkLog</h1>
+          </div>
+          <p className="text-xs text-zinc-600 tracking-wide">排班工時記錄</p>
         </div>
-        <p className="text-xs text-zinc-600 tracking-wide">每日工時記錄</p>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="text-zinc-600 hover:text-zinc-200 transition-colors p-2 rounded-lg hover:bg-zinc-800 active:scale-95"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className="w-full max-w-md mb-5 bg-zinc-900 rounded-2xl p-4 space-y-3">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500 mb-3">班次設定</p>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {shifts.map(shift => (
+              <div key={shift.id} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-800">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: shift.color }}
+                />
+                <span className="text-sm text-zinc-300 flex-1">{shift.name}</span>
+                {shift.startTime && (
+                  <span className="text-xs text-zinc-600 font-timer">
+                    {shift.startTime}–{shift.endTime}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <Button
+            onClick={() => setShowSettings(false)}
+            variant="outline"
+            size="sm"
+            className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 h-9"
+          >
+            關閉
+          </Button>
+        </div>
+      )}
 
       {/* Date Picker */}
       <div className="w-full max-w-md mb-5">
@@ -139,11 +147,40 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Shift Selector */}
+      <div className="w-full max-w-md mb-5">
+        <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-2 px-1">選擇班次</p>
+        <div className="grid grid-cols-3 gap-2">
+          {shifts.map(shift => (
+            <button
+              key={shift.id}
+              onClick={() => setSelectedShiftId(shift.id)}
+              className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 border-2 ${
+                selectedShiftId === shift.id
+                  ? "border-amber-500 text-white"
+                  : "border-zinc-700 text-zinc-400 hover:border-zinc-600"
+              }`}
+              style={
+                selectedShiftId === shift.id
+                  ? { backgroundColor: shift.color + "20", color: "white" }
+                  : {}
+              }
+            >
+              <div
+                className="w-2 h-2 rounded-full mx-auto mb-1"
+                style={{ backgroundColor: shift.color }}
+              />
+              {shift.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Input Card */}
       <div className="w-full max-w-md mb-5">
         <div className="bg-zinc-900 rounded-3xl p-5 space-y-4">
           <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
-            {current ? "修改記錄" : "新增記錄"}
+            新增記錄
           </p>
 
           {/* Hours input */}
@@ -197,73 +234,68 @@ export default function Home() {
             className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold h-12 text-base transition-all duration-150 active:scale-95 rounded-2xl"
           >
             <Plus className="w-5 h-5 mr-2" />
-            {current ? "更新記錄" : "儲存記錄"}
+            儲存記錄
           </Button>
         </div>
       </div>
 
-      {/* Month Summary */}
-      {monthDays > 0 && (
+      {/* Today's Summary */}
+      {dayTotal > 0 && (
         <div className="w-full max-w-md mb-5">
-          <div className="bg-zinc-900/60 rounded-2xl px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-zinc-500 tracking-wide">
-                {viewDate.slice(0, 7).replace("-", " 年 ")} 月
-              </p>
-              <p className="text-xs text-zinc-600 mt-0.5">共 {monthDays} 天</p>
-            </div>
-            <div className="text-right">
-              <p className="font-timer text-2xl text-amber-400">{monthTotal.toFixed(1)}<span className="text-sm ml-1 text-zinc-500">h</span></p>
-              <p className="text-xs text-zinc-600">均 {(monthTotal / monthDays).toFixed(1)}h／天</p>
+          <div className="bg-zinc-900/60 rounded-2xl px-5 py-4">
+            <p className="text-xs text-zinc-500 tracking-wide mb-3">今日工時</p>
+            <div className="space-y-2">
+              {dateEntries.map(entry => (
+                <div key={entry.shiftId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: getShiftColor(shifts, entry.shiftId) }}
+                    />
+                    <span className="text-sm text-zinc-300">{getShiftName(shifts, entry.shiftId)}</span>
+                  </div>
+                  <span className="font-timer text-amber-400">{entry.hours}h</span>
+                </div>
+              ))}
+              <div className="border-t border-zinc-800 pt-2 mt-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-zinc-200">累計</span>
+                <span className="font-timer text-lg text-amber-400">{dayTotal.toFixed(1)}h</span>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Records List */}
-      <div className="w-full max-w-md pb-safe">
-        <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-3 px-1">
-          歷史記錄
-        </p>
-        {recentEntries.length === 0 ? (
-          <div className="text-center py-12 text-zinc-700 text-sm">
-            尚無記錄，從今天開始吧
-          </div>
-        ) : (
+      {/* Today's Records */}
+      {dateEntries.length > 0 && (
+        <div className="w-full max-w-md mb-5">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-3 px-1">
+            今日記錄
+          </p>
           <div className="space-y-2">
-            {recentEntries.map(entry => (
+            {dateEntries.map(entry => (
               <div
-                key={entry.date}
-                className={`group flex items-center justify-between px-4 py-3 rounded-2xl transition-colors duration-150 active:scale-95 ${
-                  entry.date === viewDate
-                    ? "bg-zinc-800 ring-1 ring-amber-500/30"
-                    : "bg-zinc-900/60 active:bg-zinc-900"
-                }`}
-                onClick={() => setViewDate(entry.date)}
+                key={entry.shiftId}
+                className="group flex items-center justify-between px-4 py-3 rounded-2xl bg-zinc-900/60 active:bg-zinc-900"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: getShiftColor(shifts, entry.shiftId) }}
+                    />
                     <span className="text-sm font-medium text-zinc-200">
-                      {displayDate(entry.date)}
+                      {getShiftName(shifts, entry.shiftId)}
                     </span>
-                    <span className="text-xs text-zinc-600">{weekday(entry.date)}</span>
-                    {entry.date === todayStr() && (
-                      <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-medium">今天</span>
-                    )}
                   </div>
                   {entry.note && (
                     <p className="text-xs text-zinc-600 mt-1 truncate">{entry.note}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <span className="font-timer text-lg text-amber-400">
-                    {entry.hours}<span className="text-xs text-zinc-500 ml-0.5">h</span>
-                  </span>
+                  <span className="font-timer text-lg text-amber-400">{entry.hours}h</span>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(entry.date);
-                    }}
+                    onClick={() => handleDelete(entry.shiftId)}
                     className="opacity-0 group-active:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-2 rounded-lg active:scale-90"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -272,7 +304,40 @@ export default function Home() {
               </div>
             ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Month Summary */}
+      <div className="w-full max-w-md pb-safe">
+        <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-3 px-1">
+          {viewDate.slice(0, 7).replace("-", " 年 ")} 月統計
+        </p>
+        <div className="bg-zinc-900/60 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-zinc-400">總工時</span>
+            <span className="font-timer text-xl text-amber-400">{monthStats.totalHours.toFixed(1)}h</span>
+          </div>
+          <div className="border-t border-zinc-800 pt-3">
+            {shifts.map(shift => {
+              const stat = monthStats.stats[shift.id];
+              if (stat.days === 0) return null;
+              return (
+                <div key={shift.id} className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: shift.color }}
+                    />
+                    <span className="text-xs text-zinc-400">{shift.name}</span>
+                  </div>
+                  <span className="font-timer text-sm text-zinc-300">
+                    {stat.hours.toFixed(1)}h ({stat.days}d)
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
