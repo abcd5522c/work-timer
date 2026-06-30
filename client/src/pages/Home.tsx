@@ -1,25 +1,278 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
-
 /**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
+ * Home — 極簡每日工時記錄
+ * 只做一件事：記錄每天上班幾小時
  */
+
+import { useState, useEffect } from "react";
+import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+
+// ── 資料型別 ──────────────────────────────────────────
+interface DayEntry {
+  date: string;   // YYYY-MM-DD
+  hours: number;  // 工時（小時，支援小數，如 8.5）
+  note: string;   // 備註（可空）
+}
+
+const STORAGE_KEY = "daily_work_hours";
+
+function load(): DayEntry[] {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"); }
+  catch { return []; }
+}
+function save(data: DayEntry[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ── 日期工具 ──────────────────────────────────────────
+function toDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function todayStr() { return toDateStr(new Date()); }
+function displayDate(s: string) {
+  const [y, m, d] = s.split("-");
+  return `${y} 年 ${parseInt(m)} 月 ${parseInt(d)} 日`;
+}
+const WEEKDAYS = ["日","一","二","三","四","五","六"];
+function weekday(s: string) {
+  return "週" + WEEKDAYS[new Date(s + "T00:00:00").getDay()];
+}
+function addDays(s: string, n: number) {
+  const d = new Date(s + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
+}
+
+// ── 主元件 ────────────────────────────────────────────
 export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const [entries, setEntries] = useState<DayEntry[]>(load);
+  const [viewDate, setViewDate] = useState(todayStr());
+  const [hoursInput, setHoursInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+
+  // 當前日期的記錄
+  const current = entries.find(e => e.date === viewDate);
+  const isToday = viewDate === todayStr();
+
+  // 本月統計
+  const monthPrefix = viewDate.slice(0, 7);
+  const monthEntries = entries.filter(e => e.date.startsWith(monthPrefix));
+  const monthTotal = monthEntries.reduce((s, e) => s + e.hours, 0);
+  const monthDays = monthEntries.length;
+
+  // 儲存記錄
+  const handleSave = () => {
+    const h = parseFloat(hoursInput);
+    if (isNaN(h) || h < 0 || h > 24) {
+      toast.error("請輸入有效的工時（0–24）");
+      return;
+    }
+    const note = noteInput.trim();
+    const updated = entries.filter(e => e.date !== viewDate);
+    updated.push({ date: viewDate, hours: h, note });
+    updated.sort((a, b) => b.date.localeCompare(a.date));
+    setEntries(updated);
+    save(updated);
+    setHoursInput("");
+    setNoteInput("");
+    toast.success(`已記錄 ${displayDate(viewDate)}：${h} 小時`);
+  };
+
+  // 刪除記錄
+  const handleDelete = (date: string) => {
+    const updated = entries.filter(e => e.date !== date);
+    setEntries(updated);
+    save(updated);
+    toast("已刪除記錄");
+  };
+
+  // 切換日期時填入已有資料
+  useEffect(() => {
+    const c = entries.find(e => e.date === viewDate);
+    if (c) {
+      setHoursInput(String(c.hours));
+      setNoteInput(c.note);
+    } else {
+      setHoursInput("");
+      setNoteInput("");
+    }
+  }, [viewDate, entries]);
+
+  // 近 30 天記錄（最新在前）
+  const recentEntries = entries.slice(0, 30);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center py-10 px-4">
+      {/* Header */}
+      <div className="w-full max-w-md mb-8 text-center">
+        <div className="flex items-center justify-center gap-3 mb-1">
+          <img src="/manus-storage/logo_99dea628.png" alt="logo" className="w-7 h-7" />
+          <h1 className="font-timer text-xl font-semibold tracking-widest text-zinc-100">WorkLog</h1>
+        </div>
+        <p className="text-xs text-zinc-600 tracking-wide">每日工時記錄</p>
+      </div>
+
+      {/* Date Picker */}
+      <div className="w-full max-w-md mb-6">
+        <div className="flex items-center justify-between bg-zinc-900 rounded-xl px-4 py-3">
+          <button
+            onClick={() => setViewDate(d => addDays(d, -1))}
+            className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-zinc-100">{displayDate(viewDate)}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {weekday(viewDate)}{isToday && <span className="ml-2 text-amber-500">今天</span>}
+            </p>
+          </div>
+          <button
+            onClick={() => setViewDate(d => addDays(d, 1))}
+            disabled={viewDate >= todayStr()}
+            className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800 disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Input Card */}
+      <div className="w-full max-w-md mb-6">
+        <div className="bg-zinc-900 rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
+            {current ? "修改記錄" : "新增記錄"}
+          </p>
+
+          {/* Hours input */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                value={hoursInput}
+                onChange={e => setHoursInput(e.target.value)}
+                placeholder="0"
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 font-timer text-2xl h-14 text-center pr-12 focus:border-amber-500/50"
+                onKeyDown={e => e.key === "Enter" && handleSave()}
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500 pointer-events-none">
+                小時
+              </span>
+            </div>
+          </div>
+
+          {/* Quick select buttons */}
+          <div className="flex gap-2 flex-wrap">
+            {[6, 7, 7.5, 8, 8.5, 9, 10].map(h => (
+              <button
+                key={h}
+                onClick={() => setHoursInput(String(h))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-timer font-medium transition-all duration-150 ${
+                  hoursInput === String(h)
+                    ? "bg-amber-500 text-black"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                }`}
+              >
+                {h}h
+              </button>
+            ))}
+          </div>
+
+          {/* Note input */}
+          <Input
+            value={noteInput}
+            onChange={e => setNoteInput(e.target.value)}
+            placeholder="備註（選填，如：在家上班、加班）"
+            className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-600 text-sm focus:border-amber-500/50"
+            onKeyDown={e => e.key === "Enter" && handleSave()}
+          />
+
+          <Button
+            onClick={handleSave}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11 transition-all duration-150 active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {current ? "更新記錄" : "儲存記錄"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Month Summary */}
+      {monthDays > 0 && (
+        <div className="w-full max-w-md mb-6">
+          <div className="bg-zinc-900/60 rounded-xl px-5 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-zinc-500 tracking-wide">
+                {viewDate.slice(0, 7).replace("-", " 年 ")} 月
+              </p>
+              <p className="text-xs text-zinc-600 mt-0.5">共 {monthDays} 天</p>
+            </div>
+            <div className="text-right">
+              <p className="font-timer text-2xl text-amber-400">{monthTotal.toFixed(1)}<span className="text-sm ml-1 text-zinc-500">h</span></p>
+              <p className="text-xs text-zinc-600">均 {(monthTotal / monthDays).toFixed(1)}h／天</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Records List */}
+      <div className="w-full max-w-md">
+        <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-3 px-1">
+          歷史記錄
+        </p>
+        {recentEntries.length === 0 ? (
+          <div className="text-center py-12 text-zinc-700 text-sm">
+            尚無記錄，從今天開始吧
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentEntries.map(entry => (
+              <div
+                key={entry.date}
+                className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-colors duration-150 ${
+                  entry.date === viewDate
+                    ? "bg-zinc-800 ring-1 ring-amber-500/30"
+                    : "bg-zinc-900/60 hover:bg-zinc-900"
+                }`}
+              >
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => setViewDate(entry.date)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">
+                      {displayDate(entry.date)}
+                    </span>
+                    <span className="text-xs text-zinc-600">{weekday(entry.date)}</span>
+                    {entry.date === todayStr() && (
+                      <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">今天</span>
+                    )}
+                  </div>
+                  {entry.note && (
+                    <p className="text-xs text-zinc-600 mt-0.5 truncate">{entry.note}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <span className="font-timer text-lg text-amber-400">
+                    {entry.hours}<span className="text-xs text-zinc-500 ml-0.5">h</span>
+                  </span>
+                  <button
+                    onClick={() => handleDelete(entry.date)}
+                    className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-1 rounded"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
