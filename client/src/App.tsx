@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import StatsPage from "./pages/StatsPage";
+import TimeTracker from "./pages/TimeTracker";
 import { BarChart3, Home as HomeIcon } from "lucide-react";
 
 function Navigation() {
@@ -38,6 +39,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/">
+        <TimeTracker />
+      </Route>
+      <Route path="/classic">
         <Home />
       </Route>
       <Route path="/stats">

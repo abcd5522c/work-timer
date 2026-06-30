@@ -1,0 +1,87 @@
+name: Build APK with Expo
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Create Expo app config
+        run: |
+          cat > app.json << 'EOF'
+          {
+            "expo": {
+              "name": "WorkShift",
+              "slug": "workshift-app",
+              "version": "1.0.0",
+              "assetBundlePatterns": ["**/*"],
+              "ios": {
+                "supportsTabletMode": true
+              },
+              "android": {
+                "adaptiveIcon": {
+                  "foregroundImage": "./assets/adaptive-icon.png",
+                  "backgroundColor": "#ffffff"
+                },
+                "package": "com.workshift.app"
+              },
+              "web": {
+                "bundler": "metro"
+              },
+              "plugins": [
+                [
+                  "expo-router",
+                  {
+                    "origin": false,
+                    "asyncRoutes": false
+                  }
+                ]
+              ],
+              "scheme": "workshift"
+            }
+          }
+          EOF
+
+      - name: Create Expo project structure
+        run: |
+          mkdir -p assets
+          npx create-expo-app workshift-expo --template
+          cd workshift-expo
+          npm install expo-router expo-constants expo-linking react-native-gesture-handler
+
+      - name: Copy built web app
+        run: |
+          mkdir -p workshift-expo/assets
+          cp -r dist/* workshift-expo/web/ || true
+
+      - name: Build APK with Expo
+        run: |
+          cd workshift-expo
+          npx eas build --platform android --non-interactive --wait || true
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: workshift-apk-expo
+          path: workshift-expo/build/
+          if-no-files-found: warn
