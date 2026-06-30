@@ -1,5 +1,5 @@
 /**
- * Home — 極簡每日工時記錄
+ * Home — 極簡每日工時記錄（手機優化版）
  * 只做一件事：記錄每天上班幾小時
  */
 
@@ -104,35 +104,35 @@ export default function Home() {
   const recentEntries = entries.slice(0, 30);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center py-10 px-4">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center py-4 px-4 pb-safe">
       {/* Header */}
-      <div className="w-full max-w-md mb-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-1">
-          <img src="/manus-storage/logo_99dea628.png" alt="logo" className="w-7 h-7" />
-          <h1 className="font-timer text-xl font-semibold tracking-widest text-zinc-100">WorkLog</h1>
+      <div className="w-full max-w-md mb-6 text-center pt-safe">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <img src="/manus-storage/logo_99dea628.png" alt="logo" className="w-6 h-6" />
+          <h1 className="font-timer text-lg font-semibold tracking-widest text-zinc-100">WorkLog</h1>
         </div>
         <p className="text-xs text-zinc-600 tracking-wide">每日工時記錄</p>
       </div>
 
       {/* Date Picker */}
-      <div className="w-full max-w-md mb-6">
-        <div className="flex items-center justify-between bg-zinc-900 rounded-xl px-4 py-3">
+      <div className="w-full max-w-md mb-5">
+        <div className="flex items-center justify-between bg-zinc-900 rounded-2xl px-3 py-3">
           <button
             onClick={() => setViewDate(d => addDays(d, -1))}
-            className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800"
+            className="text-zinc-500 hover:text-zinc-200 transition-colors p-2 rounded-lg hover:bg-zinc-800 active:scale-95"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="text-center">
+          <div className="text-center flex-1">
             <p className="text-sm font-semibold text-zinc-100">{displayDate(viewDate)}</p>
             <p className="text-xs text-zinc-500 mt-0.5">
-              {weekday(viewDate)}{isToday && <span className="ml-2 text-amber-500">今天</span>}
+              {weekday(viewDate)}{isToday && <span className="ml-2 text-amber-500 font-medium">今天</span>}
             </p>
           </div>
           <button
             onClick={() => setViewDate(d => addDays(d, 1))}
             disabled={viewDate >= todayStr()}
-            className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800 disabled:opacity-20 disabled:cursor-not-allowed"
+            className="text-zinc-500 hover:text-zinc-200 transition-colors p-2 rounded-lg hover:bg-zinc-800 disabled:opacity-20 disabled:cursor-not-allowed active:scale-95"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -140,8 +140,8 @@ export default function Home() {
       </div>
 
       {/* Input Card */}
-      <div className="w-full max-w-md mb-6">
-        <div className="bg-zinc-900 rounded-2xl p-5 space-y-4">
+      <div className="w-full max-w-md mb-5">
+        <div className="bg-zinc-900 rounded-3xl p-5 space-y-4">
           <p className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
             {current ? "修改記錄" : "新增記錄"}
           </p>
@@ -157,25 +157,25 @@ export default function Home() {
                 value={hoursInput}
                 onChange={e => setHoursInput(e.target.value)}
                 placeholder="0"
-                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 font-timer text-2xl h-14 text-center pr-12 focus:border-amber-500/50"
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 font-timer text-3xl h-16 text-center pr-14 focus:border-amber-500/50 focus:ring-amber-500/20"
                 onKeyDown={e => e.key === "Enter" && handleSave()}
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500 pointer-events-none">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500 pointer-events-none font-medium">
                 小時
               </span>
             </div>
           </div>
 
           {/* Quick select buttons */}
-          <div className="flex gap-2 flex-wrap">
-            {[6, 7, 7.5, 8, 8.5, 9, 10].map(h => (
+          <div className="grid grid-cols-4 gap-2">
+            {[6, 7, 7.5, 8, 8.5, 9, 10, 12].map(h => (
               <button
                 key={h}
                 onClick={() => setHoursInput(String(h))}
-                className={`px-3 py-1.5 rounded-lg text-xs font-timer font-medium transition-all duration-150 ${
+                className={`px-2 py-2.5 rounded-xl text-xs font-timer font-semibold transition-all duration-150 active:scale-95 ${
                   hoursInput === String(h)
-                    ? "bg-amber-500 text-black"
-                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                    ? "bg-amber-500 text-black shadow-lg shadow-amber-500/30"
+                    : "bg-zinc-800 text-zinc-300 active:bg-zinc-700"
                 }`}
               >
                 {h}h
@@ -187,16 +187,16 @@ export default function Home() {
           <Input
             value={noteInput}
             onChange={e => setNoteInput(e.target.value)}
-            placeholder="備註（選填，如：在家上班、加班）"
-            className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-600 text-sm focus:border-amber-500/50"
+            placeholder="備註（選填）"
+            className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-600 text-sm focus:border-amber-500/50 focus:ring-amber-500/20 h-11"
             onKeyDown={e => e.key === "Enter" && handleSave()}
           />
 
           <Button
             onClick={handleSave}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold h-11 transition-all duration-150 active:scale-[0.98]"
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold h-12 text-base transition-all duration-150 active:scale-95 rounded-2xl"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-5 h-5 mr-2" />
             {current ? "更新記錄" : "儲存記錄"}
           </Button>
         </div>
@@ -204,8 +204,8 @@ export default function Home() {
 
       {/* Month Summary */}
       {monthDays > 0 && (
-        <div className="w-full max-w-md mb-6">
-          <div className="bg-zinc-900/60 rounded-xl px-5 py-4 flex items-center justify-between">
+        <div className="w-full max-w-md mb-5">
+          <div className="bg-zinc-900/60 rounded-2xl px-5 py-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-zinc-500 tracking-wide">
                 {viewDate.slice(0, 7).replace("-", " 年 ")} 月
@@ -221,7 +221,7 @@ export default function Home() {
       )}
 
       {/* Records List */}
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md pb-safe">
         <p className="text-xs font-semibold tracking-widest uppercase text-zinc-600 mb-3 px-1">
           歷史記錄
         </p>
@@ -234,38 +234,39 @@ export default function Home() {
             {recentEntries.map(entry => (
               <div
                 key={entry.date}
-                className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-colors duration-150 ${
+                className={`group flex items-center justify-between px-4 py-3 rounded-2xl transition-colors duration-150 active:scale-95 ${
                   entry.date === viewDate
                     ? "bg-zinc-800 ring-1 ring-amber-500/30"
-                    : "bg-zinc-900/60 hover:bg-zinc-900"
+                    : "bg-zinc-900/60 active:bg-zinc-900"
                 }`}
+                onClick={() => setViewDate(entry.date)}
               >
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => setViewDate(entry.date)}
-                >
-                  <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-zinc-200">
                       {displayDate(entry.date)}
                     </span>
                     <span className="text-xs text-zinc-600">{weekday(entry.date)}</span>
                     {entry.date === todayStr() && (
-                      <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">今天</span>
+                      <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-medium">今天</span>
                     )}
                   </div>
                   {entry.note && (
-                    <p className="text-xs text-zinc-600 mt-0.5 truncate">{entry.note}</p>
+                    <p className="text-xs text-zinc-600 mt-1 truncate">{entry.note}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-3 shrink-0 ml-4">
+                <div className="flex items-center gap-2 shrink-0 ml-3">
                   <span className="font-timer text-lg text-amber-400">
                     {entry.hours}<span className="text-xs text-zinc-500 ml-0.5">h</span>
                   </span>
                   <button
-                    onClick={() => handleDelete(entry.date)}
-                    className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-1 rounded"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(entry.date);
+                    }}
+                    className="opacity-0 group-active:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-2 rounded-lg active:scale-90"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

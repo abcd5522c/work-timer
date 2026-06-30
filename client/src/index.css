@@ -89,10 +89,29 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Safe area support for notched devices */
+    env-safe-area-inset-left: 0;
+    env-safe-area-inset-right: 0;
+    env-safe-area-inset-top: 0;
+    env-safe-area-inset-bottom: 0;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* Prevent zoom on input focus (iOS) */
+    font-size: 16px;
+    /* Prevent elastic scroll */
+    overscroll-behavior: none;
+    /* Touch optimization */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input, textarea, button {
+    -webkit-user-select: text;
+    user-select: text;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
